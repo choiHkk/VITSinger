@@ -32,7 +32,7 @@
     "mel_fmin": 0.0,
     "mel_fmax": null,
     "add_blank": true,
-    "n_speakers": 3998,
+    "n_speakers": -1,
     "cleaned_text": false, 
     "f0_min": 0, 
     "f0_max": 500, 
