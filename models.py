@@ -391,3 +391,14 @@ class SynthesizerTrn(nn.Module):
     l_pitch = torch.sum((torch.exp(p_hat) - p)**2, [1,2]) / torch.sum(y_mask) 
     l_silence = torch.sum((torch.sigmoid(s_hat) - s)**2, [1,2]) / torch.sum(y_mask) 
     return o, (l_pitch, l_silence), attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
+
+  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
+    assert self.n_speakers > 0, "n_speakers have to be larger than 0."
+    g_src = self.emb_g(sid_src).unsqueeze(-1)
+    g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
+    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
+    z_p = self.flow(z, y_mask, g=g_src)
+    z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
+    o_hat = self.dec(z_hat * y_mask, g=g_tgt)
+    return o_hat, y_mask, (z, z_p, z_hat)
+
