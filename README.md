@@ -1,8 +1,9 @@
 ## Introduction
 1. VITS 오픈 소스를 활용하여 Singing Voice Synthesis를 테스트합니다.
-2. Voice Conversion을 기본 출력으로 사용할 목적으로 Duration Predictor는 사용하지 않습니다.
+2. 본 레포지토리 SVS model training은 44.1kHz을 기준으로 합니다. 
 3. 데이터셋은 공개하지 않습니다. 
-4. Normal Speech Dataset으로 학습할 때와 마찬가지로 Singing Speech Dataset으로 학습해도 비슷한 퀄리티의 음성을 생성할 수 있습니다.
+4. Voice Conversion을 기본 출력으로 사용할 목적으로 Duration Predictor는 사용하지 않습니다.
+5. Normal Speech Dataset으로 학습할 때와 마찬가지로 Singing Speech Dataset으로 학습해도 비슷한 퀄리티의 음성을 생성할 수 있습니다.
 
 
 ## Docker build
