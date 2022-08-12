@@ -30,4 +30,5 @@
 
 
 ## Reference
-1. [VITS](https://github.com/jaywalnut310/vits)
+1. [HiFiSinger](https://github.com/CODEJIN/HiFiSinger)
+2. [VITS](https://github.com/jaywalnut310/vits)
