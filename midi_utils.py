@@ -159,7 +159,7 @@ def run_text_note_separate(lines, g2p_module=None, decode_module=None, flatten=T
 def run_audio_separate(wav_path, wav_info_path, data_dir, durations, debug_outputs):
     with open(wav_info_path, 'r', encoding='utf8') as j:
         wav_info = json.loads(j.read())
-        assert wav_info['기본정보']['Language'] == 'KOR'
+        # assert wav_info
         wav_genre = None 
         wav_name = None 
         speaker_name = None 
