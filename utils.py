@@ -148,18 +148,6 @@ def trim(y, frame_length=6000, hop_length=200, top_db=35):
     return y
 
 
-# def load_filepaths_and_text(filename, split="|"):
-#   with open(filename, encoding='utf-8') as f:
-#     filepaths_and_text = [line.strip().split(split) for line in f]
-#   return filepaths_and_text
-
-
-# def load_filepaths_and_text(filename, split="|"): # only supports for kss
-#   with open(filename, encoding='utf-8') as f:
-#     filepaths_and_text = [['kss/'+line.strip().split(split)[0], '0', line.strip().split(split)[-2]] for line in f]
-#   return filepaths_and_text
-
-
 # singing version
 def load_filepaths_and_text(filename, split="|", max_len=None):
   print('loading data...')

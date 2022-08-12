@@ -160,13 +160,20 @@ def run_audio_separate(wav_path, wav_info_path, data_dir, durations, debug_outpu
     with open(wav_info_path, 'r', encoding='utf8') as j:
         wav_info = json.loads(j.read())
         assert wav_info['기본정보']['Language'] == 'KOR'
-        wav_genre = wav_info['음악정보']['SongGenre']
-        wav_name = wav_info['전사정보']['LabelText']
-        speaker_name = wav_info['화자정보']['SpeakerName']
-        speaker_age = wav_info['화자정보']['Age']
-        speaker_gender = wav_info['화자정보']['Gender']
-        speaker_genre = wav_info['화자정보']['Genre']
-        filename = wav_info['파일정보']['FileName']
+        wav_genre = None 
+        wav_name = None 
+        speaker_name = None 
+        speaker_age = None 
+        speaker_gender = None 
+        speaker_genre = None 
+        filename = None 
+        assert wav_genre is not None
+        assert wav_name is not None
+        assert speaker_name is not None
+        assert speaker_age is not None
+        assert speaker_gender is not None
+        assert speaker_genre is not None
+        assert filename is not None
     
     data_dir = os.path.join(data_dir, filename)
 
@@ -212,29 +219,3 @@ def preprocess(midi_path, wav_path, wav_info_path, data_dir, *args):
     origin_texts, texts, notes = run_text_note_separate(lines, flatten=True)
     debug_outputs = run_text_note_separate(lines, flatten=True, debug=True)
     run_audio_separate(wav_path, wav_info_path, data_dir, durations, debug_outputs)
-    
-
-if __name__ == '__main__':
-    import natsort
-    from tqdm.auto import tqdm
-    import glob
-    import os
-
-    nas_path = '/home/choihk/sshfs/nas2/homes/ailab/aihub'
-    data_type = '004.MultiSpeakerSingingVoiceVocalData'
-    target_dir = f'/home/choihk/sshfs/nas2/homes/ailab/dataset/singing/{data_type}'
-    os.makedirs(target_dir, exist_ok=True)
-
-    data_dir = os.path.join(nas_path, data_type)
-
-    midi_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.mid')))
-    wav_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.wav')))
-    wav_info_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.json')))
-    
-    L = len(midi_paths)
-
-    for i in tqdm(range(L), total=L):
-        try:
-            preprocess(midi_paths[i], wav_paths[i], wav_info_paths[i], target_dir)
-        except:
-            print(midi_paths[i])

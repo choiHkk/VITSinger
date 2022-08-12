@@ -1,12 +1,21 @@
 ## Introduction
 1. VITS 오픈 소스를 활용하여 Singing Voice Synthesis를 테스트합니다.
 2. Voice Conversion을 기본 출력으로 사용할 목적으로 Duration Predictor는 사용하지 않습니다.
-3. 데이터셋과 전처리, 학습 과정은 공개하지 않습니다. 
+3. 데이터셋은 공개하지 않습니다. 
 
 
 ## Docker build
-1. `cd /path/to/the/CVAEJETS`
-2. `docker build --tag CVAEJETS:latest .`
+1. `cd /path/to/the/VITSinger`
+2. `docker build --tag VITSinger:latest .`
+
+
+## Training
+1. `nvidia-docker run -it --name 'VITSinger' -v /path/to/VITSinger:/home/work/VITSinger --ipc=host --privileged VITSinger:latest`
+2. `cd /home/work/VITSinger`
+3. `ln -s /home/work/VITSinger/data/dataset/yourdataset`
+4. `python preprocess.py --data_type=korean_base --storage_path=<yourdataset_path> --target_dir=<target_dataset_path> --line_target_dir=<> --model_name=korean_base --val_len=512`
+5. `python train.py -c ./configs/korean_base.json -m korean_base -d <target_dataset_path>`
+6. (OPTIONAL) `tensorboard --logdir=outdir/logdir`
 
 
 ## Tensorboard losses

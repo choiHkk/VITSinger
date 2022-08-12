@@ -69,9 +69,13 @@ def main(args):
     data_dir = os.path.join(args.storage_path, args.data_type)
     target_dir = os.path.join(args.target_dir, args.data_type)
     os.makedirs(target_dir, exist_ok=True)
-    midi_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.mid')))
-    wav_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.wav')))
-    wav_info_paths = natsort.natsorted(glob.glob(os.path.join(data_dir, '*/*/*/*/*/*/*/*/*.json')))
+    midi_paths = None # set your midi file paths
+    wav_paths = None # set your wav file paths 
+    wav_info_paths = None # set your json file paths
+    assert midi_paths is not None
+    assert wav_paths is not None
+    assert wav_info_paths is not None
+    
     
     L = len(midi_paths)
     for i in tqdm(range(L), total=L):
