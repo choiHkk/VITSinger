@@ -49,13 +49,7 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
         """
         audiopaths_sid_text_new = []
         lengths = []
-        
-        # for audiopath, sid, origin_text, text, note in tqdm(self.audiopaths_sid_text):
-        #     audiopath = os.path.join(self.data_dir, audiopath)
-        #     if os.path.getsize(audiopath) // (2 * self.hop_length) < 64:
-        #         print(audiopath, origin_text, len(text), os.path.getsize(audiopath) // (2 * self.hop_length))
-        # import sys
-        # sys.exit(1)
+
         for audiopath, sid, origin_text, text, note in tqdm(self.audiopaths_sid_text):
             audiopath = os.path.join(self.data_dir, audiopath)
             if os.path.getsize(audiopath) < self.sampling_rate:
@@ -141,7 +135,129 @@ class TextAudioSpeakerLoader(torch.utils.data.Dataset):
 
     def __len__(self):
         return len(self.audiopaths_sid_text)
+    
+    
+class TestTextAudioSpeakerLoader(torch.utils.data.Dataset):
+    """
+        1) loads audio, speaker_id, text pairs
+        2) normalizes text and converts them to sequences of integers
+        3) computes spectrograms from audio files.
+    """
+    def __init__(self, sid, audiopaths_sid_text, hparams):
+        self.audiopaths_sid_text = load_filepaths_and_text(audiopaths_sid_text)
+        self.text_cleaners = hparams.text_cleaners
+        self.max_wav_value = hparams.max_wav_value
+        self.sampling_rate = hparams.sampling_rate
+        self.filter_length  = hparams.filter_length
+        self.hop_length     = hparams.hop_length
+        self.win_length     = hparams.win_length
+        self.sampling_rate  = hparams.sampling_rate
+        self.f0_min         = hparams.f0_min
+        self.f0_max         = hparams.f0_max
+        self.data_dir       = hparams.data_dir
+        self.confidence_threshold = hparams.confidence_threshold
+        self.gaussian_smoothing_sigma = hparams.gaussian_smoothing_sigma
+        self.sid = sid
+        
+        self.add_blank = hparams.add_blank
+        self.min_text_len = getattr(hparams, "min_text_len", 5)
+        self.max_text_len = getattr(hparams, "max_text_len", 190)
+        self._filter()
 
+    def _filter(self):
+        print('filtering...')
+        """
+        Filter text & store spec lengths
+        """
+        audiopaths_sid_text_new = []
+        lengths = []
+
+        for audiopath, origin_text, text, note in tqdm(self.audiopaths_sid_text):
+            audiopath = os.path.join(self.data_dir, audiopath)
+            if os.path.getsize(audiopath) < self.sampling_rate:
+                # print(audiopath, os.path.getsize(audiopath))
+                continue
+            if self.min_text_len <= len(text) and len(text) <= self.max_text_len:
+                audiopaths_sid_text_new.append([audiopath, self.sid, origin_text, text, note])
+                lengths.append(os.path.getsize(audiopath) // (2 * self.hop_length))
+                
+        self.audiopaths_sid_text = audiopaths_sid_text_new
+        self.lengths = lengths
+        print(len(self.lengths))
+
+    def get_audio_text_speaker_pair(self, audiopath_sid_text):
+        # separate filename, speaker_id and text
+        audiopath, sid, origin_text, text, note = (
+            audiopath_sid_text[0], audiopath_sid_text[1], audiopath_sid_text[2], 
+            audiopath_sid_text[3], audiopath_sid_text[4])
+        text = self.get_text(text)
+        spec, wav, pitch, silence = self.get_audio(audiopath)
+        sid = self.get_sid(sid)
+        note = self.get_note(note)
+        return (text, spec, wav, pitch, silence, sid, note)
+
+    def get_audio(self, filename):
+        audio, sampling_rate = load_wav_to_torch(filename, self.sampling_rate)
+        if sampling_rate != self.sampling_rate:
+            raise ValueError("{} {} SR doesn't match target {} SR".format(
+                sampling_rate, self.sampling_rate))
+        audio_norm = audio / self.max_wav_value
+        audio_norm = audio_norm.unsqueeze(0)
+        pitch = self.get_pitch(audio_norm)
+        spec = spectrogram_torch(audio_norm, self.filter_length,
+            self.sampling_rate, self.hop_length, self.win_length,
+            center=False)
+        spec = torch.squeeze(spec, 0)
+        silence = self.get_silence(spec)
+        pitch = pitch[:spec.size(-1)]
+        silence = silence[:spec.size(-1)]
+        return spec, audio_norm, pitch, silence
+
+    def get_text(self, text):
+        text = text_to_sequence(text)
+        if self.add_blank:
+            text = commons.intersperse(text, 0)
+        text = torch.LongTensor(text)
+        return text
+
+    def get_sid(self, sid):
+        sid = torch.LongTensor([int(sid)])
+        return sid
+    
+    def get_note(self, note):
+        if self.add_blank:
+            note = commons.intersperse(note, 0)
+        note = torch.LongTensor(note)
+        return note
+    
+    def get_pitch(self, audio): # [B, T]
+        pitch = pitch_calc(
+            sig=audio.squeeze(0), 
+            sr=self.sampling_rate, 
+            w_len=self.win_length, 
+            w_step=self.hop_length, 
+            f0_min=self.f0_min, 
+            f0_max=self.f0_max, 
+            confidence_threshold=self.confidence_threshold, 
+            gaussian_smoothing_sigma=self.gaussian_smoothing_sigma
+        ) / self.f0_max # [B, F]
+        pitch = torch.from_numpy(pitch)
+        return pitch
+    
+    def get_silence(self, spec, min_db=-4.0):
+        spec_log_mean = dynamic_range_compression_torch(spec).mean(dim=0)
+        silence = torch.where(
+            spec_log_mean < min_db, 
+            torch.zeros_like(spec_log_mean), 
+            torch.ones_like(spec_log_mean))
+        return silence
+
+    def __getitem__(self, index):
+        return self.get_audio_text_speaker_pair(self.audiopaths_sid_text[index])
+
+    def __len__(self):
+        return len(self.audiopaths_sid_text)
+    
 
 class TextAudioSpeakerCollate():
     """ Zero-pads model inputs and targets

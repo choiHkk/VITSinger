@@ -383,22 +383,44 @@ class SynthesizerTrn(nn.Module):
     
     z = torch.cat([z, p_hat, s_hat], dim=1)
     if self.training:
-      z, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
+        z, ids_slice = commons.rand_slice_segments(z, y_lengths, self.segment_size)
     else:
-      ids_slice = None
+        ids_slice = None
     o = self.dec(z, g=g)
 
     l_pitch = torch.sum((torch.exp(p_hat) - p)**2, [1,2]) / torch.sum(y_mask) 
     l_silence = torch.sum((torch.sigmoid(s_hat) - s)**2, [1,2]) / torch.sum(y_mask) 
     return o, (l_pitch, l_silence), attn, ids_slice, x_mask, y_mask, (z, z_p, m_p, logs_p, m_q, logs_q)
 
-  def voice_conversion(self, y, y_lengths, sid_src, sid_tgt):
-    assert self.n_speakers > 0, "n_speakers have to be larger than 0."
-    g_src = self.emb_g(sid_src).unsqueeze(-1)
-    g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
-    z, m_q, logs_q, y_mask = self.enc_q(y, y_lengths, g=g_src)
-    z_p = self.flow(z, y_mask, g=g_src)
-    z_hat = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
-    o_hat = self.dec(z_hat * y_mask, g=g_tgt)
-    return o_hat, y_mask, (z, z_p, z_hat)
 
+  def infer(self, x, x_lengths, y, y_lengths, n, p, s, sid_src, sid_tgt):
+    # frame level
+    self.eval()
+    with torch.no_grad():
+        g_src = self.emb_g(sid_src).unsqueeze(-1)
+        g_tgt = self.emb_g(sid_tgt).unsqueeze(-1)
+        x = self.enc_p.emb(x) * math.sqrt(self.hidden_channels) # [b, t, h]
+        n_emb = self.enc_p.emb_n(n) * math.sqrt(self.hidden_channels) # [b, t, h]
+        x = x + n_emb
+
+        x_mask = torch.unsqueeze(commons.sequence_mask(x_lengths, x.size(1)), 1).to(x.dtype)
+        x = x.transpose(1,2) 
+
+        _, m_p, logs_p, x_mask = self.enc_p(x, x_mask)
+        z, _, _, y_mask = self.enc_q(y, y_lengths, g=g_src)
+        z_p = self.flow(z, y_mask, g=g_src)
+        
+        attn = self.get_attention(z_p, m_p, logs_p, x_mask, y_mask)
+
+        z = self.flow(z_p, y_mask, g=g_tgt, reverse=True)
+        
+        z = self.proj(z)
+        z, p_hat, s_hat = torch.split(z, split_size_or_sections=[self.hidden_channels-2,1,1],dim=1)
+        n_emb = self.proj_n(n_emb.transpose(1,2))
+        n_emb = torch.matmul(n_emb, attn.squeeze(1).transpose(1,2))
+        p_hat = p_hat + n_emb
+
+        z = torch.cat([z, p_hat, s_hat], dim=1)
+        o = self.dec(z, g=g_tgt)
+
+    return o, y_mask
